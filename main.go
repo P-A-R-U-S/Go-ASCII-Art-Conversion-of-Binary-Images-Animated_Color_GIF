@@ -19,6 +19,17 @@ import (
 	"os"
 )
 
+const (
+	ANSI_BASIC_BASE    int     = 16
+	ANSI_COLOR_SPACE   uint32  = 6
+	ANSI_FOREGROUND    string  = "38"
+	ANSI_RESET         string  = "\x1b[0m"
+	DEFAULT_CHARACTERS string  = "01"
+	DEFAULT_WIDTH      int     = 100
+	PROPORTION         float32 = 0.46
+	RGBA_COLOR_SPACE   uint32  = 1 << 16
+)
+
 var (
 	// VERSION indicates which version of the binary is running.
 	VERSION = "1.0.0.1"
@@ -66,17 +77,17 @@ func getFrames(reader io.Reader) (pngFrames []bytes.Buffer, err error) {
 	iWidth = hX - lX
 	iHeight = hY - lY
 
-	overpaintImage := image.NewRGBA(image.Rect(0, 0, iWidth, iHeight))
-	draw.Draw(overpaintImage, overpaintImage.Bounds(), gi.Image[0], image.ZP, draw.Src)
+	opImage := image.NewRGBA(image.Rect(0, 0, iWidth, iHeight))
+	draw.Draw(opImage, opImage.Bounds(), gi.Image[0], image.ZP, draw.Src)
 
 	result := make([]bytes.Buffer, len(gi.Image))
 
 	for i, srcImg := range gi.Image {
-		draw.Draw(overpaintImage, overpaintImage.Bounds(), srcImg, image.ZP, draw.Over)
+		draw.Draw(opImage, opImage.Bounds(), srcImg, image.ZP, draw.Over)
 
 		w := bufio.NewWriter(&result[i])
 
-		if err := png.Encode(w, overpaintImage); err != nil {
+		if err := png.Encode(w, opImage); err != nil {
 			log.Fatal(err)
 		}
 
@@ -99,8 +110,18 @@ func main() {
 
 	a.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:  "imgPath",
+			Name:  "imgPath, imp",
 			Usage: "path to animated gif-image, e.g. --imgPath ./Desktop/animation.gif",
+		},
+		cli.IntFlag{
+			Name:  "width, w",
+			Value: DEFAULT_WIDTH,
+			Usage: "image width, e.g. -- width 200 or --w 200",
+		},
+		cli.StringFlag{
+			Name:  "characters, c",
+			Value: DEFAULT_CHARACTERS,
+			Usage: "characters set, e.g. -- characters 200 or --c 200",
 		},
 	}
 
@@ -124,6 +145,10 @@ func main() {
 				log.Fatalf("not able to parse gil-file, %s", err)
 			}
 		}
+
+		//for _, frame := range frames {
+		//
+		//}
 
 		return nil
 	}
