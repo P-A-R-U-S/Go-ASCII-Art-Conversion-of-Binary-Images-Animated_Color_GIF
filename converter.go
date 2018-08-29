@@ -27,6 +27,55 @@ func clampUint16(in int64) uint16 {
 	return 0
 }
 
+func resizeGeneric(in image.Image, out *image.RGBA64, scale float64, coeffs []int32, offset []int, filterLength int) {
+	newBounds := out.Bounds()
+	maxX := in.Bounds().Dx() - 1
+
+	for x := newBounds.Min.X; x < newBounds.Max.X; x++ {
+		for y := newBounds.Min.Y; y < newBounds.Max.Y; y++ {
+			var rgba [4]int64
+			var sum int64
+			start := offset[y]
+			ci := y * filterLength
+			for i := 0; i < filterLength; i++ {
+				coeff := coeffs[ci+i]
+				if coeff != 0 {
+					xi := start + i
+					switch {
+					case xi < 0:
+						xi = 0
+					case xi >= maxX:
+						xi = maxX
+					}
+
+					r, g, b, a := in.At(xi+in.Bounds().Min.X, x+in.Bounds().Min.Y).RGBA()
+
+					rgba[0] += int64(coeff) * int64(r)
+					rgba[1] += int64(coeff) * int64(g)
+					rgba[2] += int64(coeff) * int64(b)
+					rgba[3] += int64(coeff) * int64(a)
+					sum += int64(coeff)
+				}
+			}
+
+			offset := (y-newBounds.Min.Y)*out.Stride + (x-newBounds.Min.X)*8
+
+			value := clampUint16(rgba[0] / sum)
+			out.Pix[offset+0] = uint8(value >> 8)
+			out.Pix[offset+1] = uint8(value)
+			value = clampUint16(rgba[1] / sum)
+			out.Pix[offset+2] = uint8(value >> 8)
+			out.Pix[offset+3] = uint8(value)
+			value = clampUint16(rgba[2] / sum)
+			out.Pix[offset+4] = uint8(value >> 8)
+			out.Pix[offset+5] = uint8(value)
+			value = clampUint16(rgba[3] / sum)
+			out.Pix[offset+6] = uint8(value >> 8)
+			out.Pix[offset+7] = uint8(value)
+		}
+	}
+}
+
 func resizeRGBA(in *image.RGBA, out *image.RGBA, scale float64, coeffs []int16, offset []int, filterLength int) {
 	newBounds := out.Bounds()
 	maxX := in.Bounds().Dx() - 1
