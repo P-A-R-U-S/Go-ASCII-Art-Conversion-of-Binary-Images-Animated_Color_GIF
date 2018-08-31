@@ -41,6 +41,7 @@ var (
 	frames []bytes.Buffer
 )
 
+// Split animated GIF-Image into sequence of PNG-Frames
 func getFrames(reader io.Reader) (pngFrames []bytes.Buffer, err error) {
 
 	// decoding image can panic pretty frequently if image are broken or contains missed pixels
