@@ -1,25 +1,22 @@
 package main
 
 import (
-	_ "image"
-	_ "image/draw"
-	_ "image/gif"
-	_ "image/png"
-
-	"bufio"
-	"bytes"
 	"fmt"
 	"github.com/urfave/cli"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/gif"
-	"image/png"
-	"io"
 	"log"
+	"math/rand"
 	"os"
+	"strconv"
 )
 
 const (
+	PARAM_NAME_IMAGE_PATH  string = "path"
+	PARAM_NAME_IMAGE_WIDTH string = "width"
+
 	ANSI_BASIC_BASE    int     = 16
 	ANSI_COLOR_SPACE   uint32  = 6
 	ANSI_FOREGROUND    string  = "38"
@@ -37,30 +34,96 @@ var (
 	// GITCOMMIT indicates which git hash the binary was built off of
 	GITCOMMIT string
 
-	file   *os.File
-	frames []bytes.Buffer
+	fileName   string
+	width      = DEFAULT_WIDTH
+	characters = DEFAULT_CHARACTERS
 )
 
-// Split animated GIF-Image into sequence of PNG-Frames
-func getFrames(reader io.Reader) (pngFrames []bytes.Buffer, err error) {
+func main() {
+
+	a := cli.NewApp()
+	a.Name = "GIF-Image to ANSI"
+	a.Usage = "Converting animated GIF-Image to binary ANSI animation."
+	a.Author = "Valentyn Ponomarenko"
+	a.Copyright = "Valentyn Ponomarenko"
+	a.Version = VERSION
+	a.Email = "ValentynPonomarenko@gmail.com"
+	a.Description = "Command line utility done as experiment and can be free use or modified under MIT License."
+
+	a.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "path, p",
+			Usage: "path to animated gif-image, e.g. --path ./Desktop/animation.gif or --p ./Desktop/animation.gif ",
+		},
+		cli.IntFlag{
+			Name:  "width, w",
+			Value: DEFAULT_WIDTH,
+			Usage: "image width, e.g. -- width 200 or --w 200",
+		},
+		cli.StringFlag{
+			Name:  "characters, c",
+			Value: DEFAULT_CHARACTERS,
+			Usage: "characters set, e.g. -- characters 200 or --c 200",
+		},
+	}
+
+	a.Action = func(c *cli.Context) error {
+
+		if len(c.Args()) == 0 {
+			cli.ShowAppHelp(c)
+		}
+
+		if c.IsSet(PARAM_NAME_IMAGE_PATH) {
+			fileName = c.String(PARAM_NAME_IMAGE_PATH)
+
+			if _, err := os.Stat(fileName); err != nil {
+				if os.IsNotExist(err) {
+					log.Fatalf("not able to open file, %s", err)
+				}
+			}
+
+		}
+
+		if c.IsSet(PARAM_NAME_IMAGE_WIDTH) {
+			width = c.Int(PARAM_NAME_IMAGE_WIDTH)
+		}
+
+		Process()
+
+		return nil
+	}
+
+	err := a.Run(os.Args)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}
+
+func Process() error {
 
 	// decoding image can panic pretty frequently if image are broken or contains missed pixels
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("image decoding error: %s", r)
+			fmt.Println(fmt.Errorf("image decoding error: %s", r))
 		}
 	}()
 
-	// get frames from existing gif-image
-	gi, err := gif.DecodeAll(reader)
-
+	r, err := os.Open(fileName)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	// get frames from existing gif-image
+	gifImage, err := gif.DecodeAll(r)
+	if err != nil {
+		return err
 	}
 
 	// calculate image dimension
 	var lX, lY, hX, hY, iHeight, iWidth int
-	for _, ip := range gi.Image {
+	for _, ip := range gifImage.Image {
 		if ip.Rect.Min.X < lX {
 			lX = ip.Rect.Min.X
 		}
@@ -79,85 +142,44 @@ func getFrames(reader io.Reader) (pngFrames []bytes.Buffer, err error) {
 	iHeight = hY - lY
 
 	opImage := image.NewRGBA(image.Rect(0, 0, iWidth, iHeight))
-	draw.Draw(opImage, opImage.Bounds(), gi.Image[0], image.ZP, draw.Src)
+	draw.Draw(opImage, opImage.Bounds(), gifImage.Image[0], image.ZP, draw.Src)
 
-	result := make([]bytes.Buffer, len(gi.Image))
+	charactersLength := len(characters)
+	for _, img := range gifImage.Image {
 
-	for i, srcImg := range gi.Image {
-		draw.Draw(opImage, opImage.Bounds(), srcImg, image.ZP, draw.Over)
-
-		w := bufio.NewWriter(&result[i])
-
-		if err := png.Encode(w, opImage); err != nil {
-			log.Fatal(err)
+		m := Resize(uint(width), uint(float32(width)*PROPORTION), img, LANCZOS_3)
+		var current, previous string
+		bounds := m.Bounds()
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			for x := bounds.Min.X; x < bounds.Max.X; x++ {
+				current = AnsiToCode(m.At(x, y))
+				if current != previous {
+					fmt.Print(current)
+				}
+				if ANSI_RESET != current {
+					char := string(characters[rand.Int()%charactersLength])
+					fmt.Print(char)
+				} else {
+					fmt.Print(" ")
+				}
+			}
+			fmt.Print("\n")
 		}
-
+		fmt.Print(ANSI_RESET)
 	}
 
-	return result[:], nil
-
+	return err
 }
 
-func main() {
-
-	a := cli.NewApp()
-	a.Name = "GIF-Image to ANSI"
-	a.Usage = "Converting animated GIF-Image to binary ANSI animation."
-	a.Author = "Valentyn Ponomarenko"
-	a.Copyright = "Valentyn Ponomarenko"
-	a.Version = VERSION
-	a.Email = "ValentynPonomarenko@gmail.com"
-	a.Description = "Command line utility done as experiment and can be free use or modified under MIT License."
-
-	a.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:  "imgPath, imp",
-			Usage: "path to animated gif-image, e.g. --imgPath ./Desktop/animation.gif",
-		},
-		cli.IntFlag{
-			Name:  "width, w",
-			Value: DEFAULT_WIDTH,
-			Usage: "image width, e.g. -- width 200 or --w 200",
-		},
-		cli.StringFlag{
-			Name:  "characters, c",
-			Value: DEFAULT_CHARACTERS,
-			Usage: "characters set, e.g. -- characters 200 or --c 200",
-		},
+func AnsiToCode(c color.Color) string {
+	r, g, b, _ := c.RGBA()
+	code := int(ANSI_BASIC_BASE + toAnsiSpace(r)*36 + toAnsiSpace(g)*6 + toAnsiSpace(b))
+	if code == ANSI_BASIC_BASE {
+		return ANSI_RESET
 	}
+	return "\033[" + ANSI_FOREGROUND + ";5;" + strconv.Itoa(code) + "m"
+}
 
-	a.Action = func(c *cli.Context) error {
-		var err error
-
-		if len(c.Args()) == 0 {
-			cli.ShowAppHelp(c)
-		}
-
-		if c.IsSet("imgPath") {
-			file, err = os.Open(c.String("imgPath"))
-
-			if err != nil {
-				log.Fatalf("not able to open gil-file, %s", err)
-			}
-
-			frames, err = getFrames(file)
-
-			if err != nil {
-				log.Fatalf("not able to parse gil-file, %s", err)
-			}
-		}
-
-		//for _, frame := range frames {
-		//
-		//}
-
-		return nil
-	}
-
-	err := a.Run(os.Args)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func toAnsiSpace(val uint32) int {
+	return int(float32(ANSI_COLOR_SPACE) * (float32(val) / float32(RGBA_COLOR_SPACE)))
 }
