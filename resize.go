@@ -14,34 +14,34 @@ type InterpolationFunction int
 // InterpolationFunction constants
 const (
 	// Nearest-neighbor interpolation
-	NearestNeighbor InterpolationFunction = iota
-	// Bilinear interpolation
-	Bilinear
-	// Bicubic interpolation (with cubic hermite spline)
-	Bicubic
+	NEAREST_NEIHHBOR InterpolationFunction = iota
+	// BILINEARB interpolation
+	BILINEARB
+	// BICUBIC interpolation (with cubic hermite spline)
+	BICUBIC
 	// Mitchell-Netravali interpolation
-	MitchellNetravali
+	METHCEL_NETRAVALI
 	// Lanczos interpolation (a=2)
-	Lanczos2
+	LANCZOS_2
 	// Lanczos interpolation (a=3)
-	Lanczos3
+	LANCZOS_3
 )
 
 // kernal, returns an InterpolationFunctions taps and kernel.
 func (i InterpolationFunction) kernel() (int, func(float64) float64) {
 	switch i {
-	case Bilinear:
+	case BILINEARB:
 		return 2, linear
-	case Bicubic:
+	case BICUBIC:
 		return 4, cubic
-	case MitchellNetravali:
+	case METHCEL_NETRAVALI:
 		return 4, mitchellnetravali
-	case Lanczos2:
+	case LANCZOS_2:
 		return 4, lanczos2
-	case Lanczos3:
+	case LANCZOS_3:
 		return 6, lanczos3
 	default:
-		// Default to NearestNeighbor.
+		// Default to NEAREST_NEIHHBOR.
 		return 2, nearest
 	}
 }
@@ -74,7 +74,7 @@ func Resize(width, height uint, img image.Image, interp InterpolationFunction) i
 		return img
 	}
 
-	if interp == NearestNeighbor {
+	if interp == NEAREST_NEIHHBOR {
 		return resizeNearest(width, height, scaleX, scaleY, img, interp)
 	}
 
