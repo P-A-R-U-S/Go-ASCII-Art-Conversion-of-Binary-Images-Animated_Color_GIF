@@ -147,7 +147,7 @@ func Process() error {
 		width, heigth = Size()
 
 		if err != nil {
-			fmt.Println(fmt.Errorf("image decoding error: %s", r))
+			fmt.Println(fmt.Errorf("image decoding error: %v", r))
 		}
 		m := Resize(uint(width), uint(float32(heigth)*PROPORTION), img, LANCZOS_3)
 		var current, previous string
