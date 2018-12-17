@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/urfave/cli"
-	"image"
 	"image/color"
-	"image/draw"
 	"image/gif"
 	"log"
 	"math/rand"
@@ -23,19 +21,18 @@ const (
 	ANSI_RESET         string  = "\x1b[0m"
 	DEFAULT_CHARACTERS string  = "01"
 	DEFAULT_WIDTH      int     = 100
+	DEFAULT_HEIGTH     int     = 100
 	PROPORTION         float32 = 0.46
 	RGBA_COLOR_SPACE   uint32  = 1 << 16
+
+	// VERSION indicates which version of the binary is running.
+	VERSION = "1.0.0.1"
 )
 
 var (
-	// VERSION indicates which version of the binary is running.
-	VERSION = "1.0.0.1"
-
-	// GITCOMMIT indicates which git hash the binary was built off of
-	GITCOMMIT string
-
 	fileName   string
 	width      = DEFAULT_WIDTH
+	heigth     = DEFAULT_HEIGTH
 	characters = DEFAULT_CHARACTERS
 )
 
@@ -55,11 +52,11 @@ func main() {
 			Name:  "path, p",
 			Usage: "path to animated gif-image, e.g. --path ./Desktop/animation.gif or --p ./Desktop/animation.gif ",
 		},
-		cli.IntFlag{
-			Name:  "width, w",
-			Value: DEFAULT_WIDTH,
-			Usage: "image width, e.g. -- width 200 or --w 200",
-		},
+		//cli.IntFlag{
+		//	Name:  "width, w",
+		//	Value: DEFAULT_WIDTH,
+		//	Usage: "image width, e.g. -- width 200 or --w 200",
+		//},
 		cli.StringFlag{
 			Name:  "characters, c",
 			Value: DEFAULT_CHARACTERS,
@@ -84,9 +81,9 @@ func main() {
 
 		}
 
-		if c.IsSet(PARAM_NAME_IMAGE_WIDTH) {
-			width = c.Int(PARAM_NAME_IMAGE_WIDTH)
-		}
+		//if c.IsSet(PARAM_NAME_IMAGE_WIDTH) {
+		//	width = c.Int(PARAM_NAME_IMAGE_WIDTH)
+		//}
 
 		Process()
 
@@ -122,32 +119,37 @@ func Process() error {
 	}
 
 	// calculate image dimension
-	var lX, lY, hX, hY, iHeight, iWidth int
-	for _, ip := range gifImage.Image {
-		if ip.Rect.Min.X < lX {
-			lX = ip.Rect.Min.X
-		}
-		if ip.Rect.Min.Y < lY {
-			lY = ip.Rect.Min.Y
-		}
-		if ip.Rect.Max.X > hX {
-			hX = ip.Rect.Max.X
-		}
-		if ip.Rect.Max.Y > hY {
-			hY = ip.Rect.Max.Y
-		}
-	}
+	//var lX, lY, hX, hY, iHeight, iWidth int
+	//for _, ip := range gifImage.Image {
+	//	if ip.Rect.Min.X < lX {
+	//		lX = ip.Rect.Min.X
+	//	}
+	//	if ip.Rect.Min.Y < lY {
+	//		lY = ip.Rect.Min.Y
+	//	}
+	//	if ip.Rect.Max.X > hX {
+	//		hX = ip.Rect.Max.X
+	//	}
+	//	if ip.Rect.Max.Y > hY {
+	//		hY = ip.Rect.Max.Y
+	//	}
+	//}
+	//
+	//iWidth = hX - lX
+	//iHeight = hY - lY
 
-	iWidth = hX - lX
-	iHeight = hY - lY
-
-	opImage := image.NewRGBA(image.Rect(0, 0, iWidth, iHeight))
-	draw.Draw(opImage, opImage.Bounds(), gifImage.Image[0], image.ZP, draw.Src)
+	//opImage := image.NewRGBA(image.Rect(0, 0, iWidth, iHeight))
+	//draw.Draw(opImage, opImage.Bounds(), gifImage.Image[0], image.ZP, draw.Src)
 
 	charactersLength := len(characters)
 	for _, img := range gifImage.Image {
 
-		m := Resize(uint(width), uint(float32(width)*PROPORTION), img, LANCZOS_3)
+		width, heigth = Size()
+
+		if err != nil {
+			fmt.Println(fmt.Errorf("image decoding error: %s", r))
+		}
+		m := Resize(uint(width), uint(float32(heigth)*PROPORTION), img, LANCZOS_3)
 		var current, previous string
 		bounds := m.Bounds()
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
